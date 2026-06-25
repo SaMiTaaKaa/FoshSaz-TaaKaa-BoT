@@ -15,13 +15,16 @@ from database import (
     add_words,
     get_words_count,
     get_all_words,
-    generate_sentence
+    generate_sentence,
+    delete_word,
+    word_exists
 )
 
 bot = Bot(BOT_TOKEN)
 dp = Dispatcher()
 
 waiting_for_words = set()
+waiting_for_delete = set()
 
 
 def main_menu(is_owner=False):
@@ -43,6 +46,12 @@ def main_menu(is_owner=False):
             InlineKeyboardButton(
                 text="🧠 ساخت جمله",
                 callback_data="make_sentence"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="🗑 حذف کلمه",
+                callback_data="delete_word"
             )
         ]
     ]
@@ -138,40 +147,81 @@ async def make_sentence(callback: CallbackQuery):
         await callback.answer()
         return
 
+    await callback.message.answer(sentence)
+
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "delete_word")
+async def delete_word_button(callback: CallbackQuery):
+
+    waiting_for_delete.add(
+        callback.from_user.id
+    )
+
     await callback.message.answer(
-        f"🧠 جمله ساخته شد:\n\n{sentence}"
+        "🗑 کلمه مورد نظر برای حذف را ارسال کنید"
     )
 
     await callback.answer()
 
 
 @dp.message()
-async def receive_words(message: Message):
+async def receive_messages(message: Message):
 
     user_id = message.from_user.id
 
-    if user_id not in waiting_for_words:
-        return
+    if user_id in waiting_for_delete:
 
-    words = message.text.split()
+        word = message.text.strip()
 
-    if len(words) > 50:
+        exists = await word_exists(word)
+
+        if not exists:
+
+            waiting_for_delete.remove(user_id)
+
+            await message.answer(
+                "❌ این کلمه در دیتابیس وجود ندارد."
+            )
+
+            return
+
+        await delete_word(word)
+
+        waiting_for_delete.remove(user_id)
 
         await message.answer(
-            "❌ حداکثر 50 کلمه مجاز است."
+            f"✅ کلمه «{word}» حذف شد."
         )
+
+        await send_panel(message)
 
         return
 
-    await add_words(words)
+    if user_id in waiting_for_words:
 
-    waiting_for_words.remove(user_id)
+        words = message.text.split()
 
-    await message.answer(
-        f"✅ {len(words)} کلمه ذخیره شد."
-    )
+        if len(words) > 50:
 
-    await send_panel(message)
+            await message.answer(
+                "❌ حداکثر 50 کلمه مجاز است."
+            )
+
+            return
+
+        await add_words(words)
+
+        waiting_for_words.remove(user_id)
+
+        await message.answer(
+            f"✅ {len(words)} کلمه ذخیره شد."
+        )
+
+        await send_panel(message)
+
+        return
 
 
 async def main():
