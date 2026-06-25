@@ -13,7 +13,8 @@ from config import BOT_TOKEN, OWNER_ID
 from database import (
     connect_db,
     add_words,
-    get_words_count
+    get_words_count,
+    get_all_words
 )
 
 bot = Bot(BOT_TOKEN)
@@ -95,6 +96,30 @@ async def add_word_button(callback: CallbackQuery):
 
     await callback.message.answer(
         "📝 کلمات را ارسال کنید\n\nحداکثر 50 کلمه"
+    )
+
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "show_words")
+async def show_words(callback: CallbackQuery):
+
+    words = await get_all_words()
+
+    if not words:
+        await callback.message.answer(
+            "❌ هنوز کلمه‌ای ثبت نشده."
+        )
+        await callback.answer()
+        return
+
+    text = "\n".join(words)
+
+    if len(text) > 4000:
+        text = text[:4000]
+
+    await callback.message.answer(
+        f"📋 لیست کلمات:\n\n{text}"
     )
 
     await callback.answer()
