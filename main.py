@@ -1,21 +1,27 @@
 import asyncio
 
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart
 from aiogram.types import (
     Message,
+    CallbackQuery,
     InlineKeyboardMarkup,
     InlineKeyboardButton
 )
 
 from config import BOT_TOKEN, OWNER_ID
-from database import connect_db
+from database import (
+    connect_db,
+    add_words,
+    get_words_count
+)
 
 bot = Bot(BOT_TOKEN)
 dp = Dispatcher()
 
+waiting_for_words = set()
 
-# پنل اصلی
+
 def main_menu(is_owner=False):
 
     buttons = [
@@ -52,27 +58,75 @@ def main_menu(is_owner=False):
     )
 
 
-@dp.message(CommandStart())
-async def start_cmd(message: Message):
+async def send_panel(message: Message):
 
-    user_id = message.from_user.id
-
-    if user_id != OWNER_ID:
-        await message.answer(
-            "⛔ شما دسترسی به ربات ندارید."
-        )
-        return
+    words_count = await get_words_count()
 
     text = (
-        "🔥 پنل ساخت تاکا\n\n"
-        "تعداد کلمات: 0\n"
-        "تعداد سودوها: 0"
+        f"🔥 پنل ساخت تاکا\n\n"
+        f"تعداد کلمات: {words_count}\n"
+        f"تعداد سودوها: 0"
     )
 
     await message.answer(
         text,
         reply_markup=main_menu(True)
     )
+
+
+@dp.message(CommandStart())
+async def start_cmd(message: Message):
+
+    if message.from_user.id != OWNER_ID:
+        await message.answer(
+            "⛔ شما دسترسی به ربات ندارید."
+        )
+        return
+
+    await send_panel(message)
+
+
+@dp.callback_query(F.data == "add_word")
+async def add_word_button(callback: CallbackQuery):
+
+    waiting_for_words.add(
+        callback.from_user.id
+    )
+
+    await callback.message.answer(
+        "📝 کلمات را ارسال کنید\n\nحداکثر 50 کلمه"
+    )
+
+    await callback.answer()
+
+
+@dp.message()
+async def receive_words(message: Message):
+
+    user_id = message.from_user.id
+
+    if user_id not in waiting_for_words:
+        return
+
+    words = message.text.split()
+
+    if len(words) > 50:
+
+        await message.answer(
+            "❌ حداکثر 50 کلمه مجاز است."
+        )
+
+        return
+
+    await add_words(words)
+
+    waiting_for_words.remove(user_id)
+
+    await message.answer(
+        f"✅ {len(words)} کلمه ذخیره شد."
+    )
+
+    await send_panel(message)
 
 
 async def main():
