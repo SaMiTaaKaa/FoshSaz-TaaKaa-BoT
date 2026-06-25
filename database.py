@@ -1,4 +1,5 @@
 import asyncpg
+import random
 from config import DATABASE_URL
 
 db = None
@@ -41,11 +42,9 @@ async def add_words(words_list):
 async def get_words_count():
     async with db.acquire() as conn:
 
-        count = await conn.fetchval(
+        return await conn.fetchval(
             "SELECT COUNT(*) FROM words"
         )
-
-        return count
 
 
 async def get_all_words():
@@ -56,3 +55,63 @@ async def get_all_words():
         )
 
         return [row["word"] for row in rows]
+
+
+async def generate_sentence():
+
+    async with db.acquire() as conn:
+
+        rows = await conn.fetch(
+            """
+            SELECT id, word
+            FROM words
+            WHERE used = FALSE
+            """
+        )
+
+        if not rows:
+
+            await conn.execute(
+                "UPDATE words SET used = FALSE"
+            )
+
+            rows = await conn.fetch(
+                """
+                SELECT id, word
+                FROM words
+                WHERE used = FALSE
+                """
+            )
+
+        if not rows:
+            return None
+
+        random.shuffle(rows)
+
+        count = min(
+            len(rows),
+            random.randint(5, 25)
+        )
+
+        selected = rows[:count]
+
+        ids = [x["id"] for x in selected]
+        words = [x["word"] for x in selected]
+
+        await conn.execute(
+            """
+            UPDATE words
+            SET used = TRUE
+            WHERE id = ANY($1::int[])
+            """,
+            ids
+        )
+
+        lines = []
+
+        for i in range(0, len(words), 5):
+            lines.append(
+                " ".join(words[i:i + 5])
+            )
+
+        return "\n".join(lines[:5])

@@ -14,7 +14,8 @@ from database import (
     connect_db,
     add_words,
     get_words_count,
-    get_all_words
+    get_all_words,
+    generate_sentence
 )
 
 bot = Bot(BOT_TOKEN)
@@ -120,6 +121,25 @@ async def show_words(callback: CallbackQuery):
 
     await callback.message.answer(
         f"📋 لیست کلمات:\n\n{text}"
+    )
+
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "make_sentence")
+async def make_sentence(callback: CallbackQuery):
+
+    sentence = await generate_sentence()
+
+    if not sentence:
+        await callback.message.answer(
+            "❌ هیچ کلمه‌ای در دیتابیس وجود ندارد."
+        )
+        await callback.answer()
+        return
+
+    await callback.message.answer(
+        f"🧠 جمله ساخته شد:\n\n{sentence}"
     )
 
     await callback.answer()
