@@ -4,7 +4,8 @@ from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
-BOT_TOKEN = "8664993494:AAHreU6aACxjWZyZiMMryTV304QSFrw7ib0"
+from config import BOT_TOKEN
+from database import connect_db
 
 bot = Bot(BOT_TOKEN)
 dp = Dispatcher()
@@ -17,6 +18,9 @@ async def start_cmd(message: Message):
 
 async def main():
     print("Bot Started...")
+
+    await connect_db()
+
     await dp.start_polling(bot)
 
 
