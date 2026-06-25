@@ -115,4 +115,25 @@ async def generate_sentence():
             )
 
         return "\n".join(lines[:5])
-    
+
+
+async def delete_word(word):
+
+    async with db.acquire() as conn:
+
+        await conn.execute(
+            "DELETE FROM words WHERE word = $1",
+            word
+        )
+
+
+async def word_exists(word):
+
+    async with db.acquire() as conn:
+
+        count = await conn.fetchval(
+            "SELECT COUNT(*) FROM words WHERE word = $1",
+            word
+        )
+
+        return count > 0
