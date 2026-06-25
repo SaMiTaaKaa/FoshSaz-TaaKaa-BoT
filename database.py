@@ -137,3 +137,56 @@ async def word_exists(word):
         )
 
         return count > 0
+
+
+# ---------- SUDO SYSTEM ----------
+
+async def add_sudo(user_id):
+
+    async with db.acquire() as conn:
+
+        await conn.execute(
+            """
+            INSERT INTO sudo_users(user_id)
+            VALUES($1)
+            ON CONFLICT (user_id) DO NOTHING
+            """,
+            user_id
+        )
+
+
+async def remove_sudo(user_id):
+
+    async with db.acquire() as conn:
+
+        await conn.execute(
+            "DELETE FROM sudo_users WHERE user_id = $1",
+            user_id
+        )
+
+
+async def is_sudo(user_id):
+
+    async with db.acquire() as conn:
+
+        result = await conn.fetchval(
+            """
+            SELECT EXISTS(
+                SELECT 1
+                FROM sudo_users
+                WHERE user_id = $1
+            )
+            """,
+            user_id
+        )
+
+        return result
+
+
+async def get_sudo_count():
+
+    async with db.acquire() as conn:
+
+        return await conn.fetchval(
+            "SELECT COUNT(*) FROM sudo_users"
+        )
